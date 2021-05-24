@@ -275,10 +275,16 @@ public class MegastekProtocolDecoder extends BaseProtocolDecoder {
             .or().text(" ")
             .groupEnd("?").text(",")
             .number("(d+)?,")                    // rfid
-            .expression("[^,]*,")
+            .groupBegin()                        // ext accessories
+            .number("([01])")                    // charging
+            .text("-").optional()
+            .number("(d)").optional()            // belt status
+            .expression("[^,]*")
+            .groupEnd("?").text(",")
             .number("(d+)?,")                    // battery
-            .expression("([^,]*)")               // alert
+            .expression("([^,]*),?")             // alert
             .any()
+            .text(";")
             .compile();
 
     private Position decodeNew(Channel channel, SocketAddress remoteAddress, String sentence) {
@@ -354,6 +360,13 @@ public class MegastekProtocolDecoder extends BaseProtocolDecoder {
         }
 
         position.set(Position.KEY_DRIVER_UNIQUE_ID, parser.next());
+        
+        if (parser.hasNext(2)) {
+            position.set("charging", parser.nextInt() == 1);
+            if (parser.hasNext()) {
+                position.set("belt", parser.nextInt());
+            }
+        }
 
         String battery = parser.next();
         if (battery != null) {
@@ -378,7 +391,7 @@ public class MegastekProtocolDecoder extends BaseProtocolDecoder {
             case "poweron":
                 return Position.ALARM_POWER_ON;
             case "poweroff":
-                return Position.ALARM_POWER_ON;
+                return Position.ALARM_POWER_OFF;
             case "sos":
             case "help":
                 return Position.ALARM_SOS;
@@ -396,6 +409,12 @@ public class MegastekProtocolDecoder extends BaseProtocolDecoder {
                 return Position.ALARM_GEOFENCE_ENTER;
             case "move out":
                 return Position.ALARM_GEOFENCE_EXIT;
+            case "belt on":
+            case "belton":
+                return Position.ALARM_LOCK;
+            case "belt off":
+            case "beltoff":
+                return Position.ALARM_UNLOCK;
             case "error":
                 return Position.ALARM_FAULT;
             default:
