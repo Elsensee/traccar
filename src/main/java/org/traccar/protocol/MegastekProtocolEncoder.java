@@ -28,9 +28,10 @@ public class MegastekProtocolEncoder extends StringProtocolEncoder implements St
 
     @Override
     public String formatValue(String key, Object value) {
+
         switch (key) {
             case Command.KEY_FREQUENCY:
-                Integer seconds = (Integer) value;
+                int seconds = (int) value;
                 // Round with bias to favour smaller intervals to bigger ones.
                 Integer interval = Math.round((seconds - 5) / 30.0f);
                 if (interval < 1) {
@@ -43,13 +44,14 @@ public class MegastekProtocolEncoder extends StringProtocolEncoder implements St
             case Command.KEY_TIMEZONE:
                 Integer timezone = TimeZone.getTimeZone(value.toString()).getRawOffset() / 60000;
                 return timezone.toString();
+            default:
+                return null;
         }
-
-        return null;
     }
 
     @Override
     protected Object encodeCommand(Command command) {
+
         switch (command.getType()) {
             case Command.TYPE_SET_CONNECTION:
                 return formatCommand(command, "$GPRS,%s;W003,%s,%s;!",
@@ -57,7 +59,7 @@ public class MegastekProtocolEncoder extends StringProtocolEncoder implements St
                     Command.KEY_SERVER,
                     Command.KEY_PORT);
             case Command.TYPE_POSITION_STOP:
-                return formatCommand(command, "$GRPS,%s;W005,0;!", Command.KEY_UNIQUE_ID);
+                return formatCommand(command, "$GPRS,%s;W005,0;!", Command.KEY_UNIQUE_ID);
             case Command.TYPE_POSITION_PERIODIC:
                 return formatCommand(command, "$GPRS,%s;W005,%s;!", this, Command.KEY_UNIQUE_ID, Command.KEY_FREQUENCY);
             case Command.TYPE_SOS_NUMBER:
@@ -82,17 +84,28 @@ public class MegastekProtocolEncoder extends StringProtocolEncoder implements St
                 if (time.length != 2) {
                     return null;
                 }
-                return formatCommand(command, "$GRPS,%s;W038," + time[1] + "," + time[0] + ";!", Command.KEY_UNIQUE_ID);
+                return formatCommand(command, "$GPRS,%s;W038," + time[1] + "," + time[0] + ";!", Command.KEY_UNIQUE_ID);
             case Command.TYPE_POSITION_SINGLE:
-                return formatCommand(command, "$GRPS,%s;W052;!", Command.KEY_UNIQUE_ID);
+                return formatCommand(command, "$GPRS,%s;W052;!", Command.KEY_UNIQUE_ID);
             case Command.TYPE_FACTORY_RESET:
                 return formatCommand(command, "$GPRS,%s;C099;!", Command.KEY_UNIQUE_ID);
             case Command.TYPE_REBOOT_DEVICE:
                 return formatCommand(command, "$GPRS,%s;W100;!", Command.KEY_UNIQUE_ID);
             case Command.TYPE_CUSTOM:
                 String customCommand = command.getString(Command.KEY_DATA);
-                if (customCommand.startsWith("$")) {
+                boolean smsCommand = customCommand.startsWith("$SMS");
+
+                if ((customCommand.startsWith("$") && !smsCommand)
+                    || (!customCommand.startsWith("W")
+                        && !customCommand.startsWith("R")
+                        && !customCommand.startsWith("C"))
+                ) {
+                    // If it's correctly entered, we shouldn't doctor with it and it's good to go.
                     return customCommand;
+                }
+                if (smsCommand) {
+                    // If someone entered the SMS format, sending via GPRS won't work, so we replace it.
+                    customCommand = customCommand.substring(customCommand.indexOf(";") + 1);
                 }
                 if (!customCommand.endsWith(";!")) {
                     if (customCommand.endsWith(";")) {
@@ -102,8 +115,8 @@ public class MegastekProtocolEncoder extends StringProtocolEncoder implements St
                     }
                 }
                 return formatCommand(command, "$GPRS,%s;" + customCommand, Command.KEY_UNIQUE_ID);
+            default:
+                return null;
         }
-
-        return null;
     }
 }

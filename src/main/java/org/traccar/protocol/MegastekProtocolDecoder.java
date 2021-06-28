@@ -449,7 +449,7 @@ public class MegastekProtocolDecoder extends BaseProtocolDecoder {
             .compile();
 
     private Position decodeCommand(Channel channel, SocketAddress remoteAddress, String sentence) {
-        
+
         Parser parser = new Parser(PATTERN_COMMAND, sentence);
         if (!parser.matches()) {
             return null;
@@ -476,7 +476,7 @@ public class MegastekProtocolDecoder extends BaseProtocolDecoder {
                 response += String.format("W051,%s;", format.format(new Date()));
             }
         }
-        if (!response.equals("")) {
+        if (!response.equals("") && channel != null) {
             channel.writeAndFlush(new NetworkMessage("$GPRS," + imei + ";" + response + "!", remoteAddress));
         }
 

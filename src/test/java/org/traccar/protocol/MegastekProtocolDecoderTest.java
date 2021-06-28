@@ -120,6 +120,14 @@ public class MegastekProtocolDecoderTest extends ProtocolTest {
         verifyPosition(decoder, text(
                 "LOGSTX,123456789012345,$GPRMC,230739.000,A,3841.81895,N,09494.12409,W,0.00,0.00,270914,,,A*70,L,,imei:123456789012345,0/7,269.7,Battery=100%,,0,,,5856,78A3;78"));
         
+        verifyAttribute(decoder, text(
+                "$123456789012345;W005,OK;!"),
+                Position.KEY_RESULT, "W005,OK");
+
+        verifyAttribute(decoder, text(
+                "$123456789012345;R029,OK,MT70_ALPHA_20131223-1_standard,spiflash ok,gsensor ok,gps fix 062917.00 241213;!"),
+                Position.KEY_RESULT, "R029,OK,MT70_ALPHA_20131223-1_standard,spiflash ok,gsensor ok,gps fix 062917.00 241213");
+
     }
 
 }
