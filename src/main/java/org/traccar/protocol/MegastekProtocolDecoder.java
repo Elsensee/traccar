@@ -18,6 +18,7 @@ package org.traccar.protocol;
 import io.netty.channel.Channel;
 import org.traccar.BaseProtocolDecoder;
 import org.traccar.DeviceSession;
+import org.traccar.NetworkMessage;
 import org.traccar.Protocol;
 import org.traccar.helper.DateBuilder;
 import org.traccar.helper.Parser;
@@ -27,6 +28,9 @@ import org.traccar.model.Network;
 import org.traccar.model.Position;
 
 import java.net.SocketAddress;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.TimeZone;
 import java.util.regex.Pattern;
 
 public class MegastekProtocolDecoder extends BaseProtocolDecoder {
@@ -437,6 +441,48 @@ public class MegastekProtocolDecoder extends BaseProtocolDecoder {
         }
     }
 
+    private static final Pattern PATTERN_COMMAND = new PatternBuilder()
+            .text("$")
+            .number("(d+);")         // imei
+            .expression("(.+);")     // responses/queries
+            .any()
+            .compile();
+
+    private Position decodeCommand(Channel channel, SocketAddress remoteAddress, String sentence) {
+        
+        Parser parser = new Parser(PATTERN_COMMAND, sentence);
+        if (!parser.matches()) {
+            return null;
+        }
+
+        String imei = parser.next();
+        DeviceSession deviceSession = getDeviceSession(channel, remoteAddress, imei);
+        if (deviceSession == null) {
+            return null;
+        }
+
+        Position position = new Position(getProtocolName());
+        position.setDeviceId(deviceSession.getDeviceId());
+        getLastLocation(position, null);
+
+        String command = parser.next();
+        position.set(Position.KEY_RESULT, command);
+
+        String response = "";
+        for (String part : command.split(";")) {
+            if (part.toUpperCase().startsWith("Q051")) {
+                SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                format.setTimeZone(TimeZone.getTimeZone("GMT"));
+                response += String.format("W051,%s;", format.format(new Date()));
+            }
+        }
+        if (!response.equals("")) {
+            channel.writeAndFlush(new NetworkMessage("$GPRS," + imei + ";" + response + "!", remoteAddress));
+        }
+
+        return position;
+    }
+
     @Override
     protected Object decode(
             Channel channel, SocketAddress remoteAddress, Object msg) throws Exception {
@@ -445,6 +491,8 @@ public class MegastekProtocolDecoder extends BaseProtocolDecoder {
 
         if (sentence.contains("$MG")) {
             return decodeNew(channel, remoteAddress, sentence);
+        } else if (sentence.startsWith("$")) { // Command reply
+            return decodeCommand(channel, remoteAddress, sentence);
         } else {
             return decodeOld(channel, remoteAddress, sentence);
         }

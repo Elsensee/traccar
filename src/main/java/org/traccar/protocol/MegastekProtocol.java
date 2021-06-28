@@ -46,6 +46,7 @@ public class MegastekProtocol extends BaseProtocol {
                 pipeline.addLast(new MegastekFrameDecoder());
                 pipeline.addLast(new StringEncoder());
                 pipeline.addLast(new StringDecoder());
+                pipeline.addLast(new MegastekProtocolEncoder(MegastekProtocol.this));
                 pipeline.addLast(new MegastekProtocolDecoder(MegastekProtocol.this));
             }
         });
