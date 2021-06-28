@@ -20,10 +20,26 @@ import io.netty.handler.codec.string.StringEncoder;
 import org.traccar.BaseProtocol;
 import org.traccar.PipelineBuilder;
 import org.traccar.TrackerServer;
+import org.traccar.model.Command;
 
 public class MegastekProtocol extends BaseProtocol {
 
     public MegastekProtocol() {
+        setSupportedDataCommands(
+            Command.TYPE_SET_CONNECTION,
+            Command.TYPE_POSITION_STOP,
+            Command.TYPE_POSITION_PERIODIC,
+            Command.TYPE_SOS_NUMBER,
+            Command.TYPE_SET_TIMEZONE,
+            Command.TYPE_GET_VERSION,
+            Command.TYPE_GET_DEVICE_STATUS,
+            Command.TYPE_ALARM_VIBRATION,
+            Command.TYPE_SILENCE_TIME,
+            Command.TYPE_POSITION_SINGLE,
+            Command.TYPE_FACTORY_RESET,
+            Command.TYPE_REBOOT_DEVICE,
+            Command.TYPE_CUSTOM
+        );
         addServer(new TrackerServer(false, getName()) {
             @Override
             protected void addProtocolHandlers(PipelineBuilder pipeline) {
