@@ -93,17 +93,19 @@ public class MegastekProtocolEncoder extends StringProtocolEncoder implements St
                 return formatCommand(command, "$GPRS,%s;W100;!", Command.KEY_UNIQUE_ID);
             case Command.TYPE_CUSTOM:
                 String customCommand = command.getString(Command.KEY_DATA);
-                boolean smsCommand = customCommand.startsWith("$SMS");
+                boolean isSmsCommand = customCommand.startsWith("$SMS");
 
-                if ((customCommand.startsWith("$") && !smsCommand)
+                if (customCommand.startsWith("$")
                     || (!customCommand.startsWith("W")
                         && !customCommand.startsWith("R")
                         && !customCommand.startsWith("C"))
                 ) {
                     // If it's correctly entered, we shouldn't doctor with it and it's good to go.
-                    return customCommand;
+                    if (!isSmsCommand) {
+                        return customCommand;
+                    }
                 }
-                if (smsCommand) {
+                if (isSmsCommand) {
                     // If someone entered the SMS format, sending via GPRS won't work, so we replace it.
                     customCommand = customCommand.substring(customCommand.indexOf(";") + 1);
                 }

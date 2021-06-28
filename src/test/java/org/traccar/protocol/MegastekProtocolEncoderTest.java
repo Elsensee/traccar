@@ -63,6 +63,26 @@ public class MegastekProtocolEncoderTest extends ProtocolTest {
 
         command.set(Command.KEY_FREQUENCY, 0);
         assertEquals("$GPRS,123456789012345;W005,1;!", encoder.encodeCommand(command));
+
     }
 
+    @Test
+    public void testEncodeCustom() throws Exception {
+
+        var encoder = new MegastekProtocolEncoder(null);
+
+        Command command = new Command();
+        command.setDeviceId(1);
+        command.setType(Command.TYPE_CUSTOM);
+        command.set(Command.KEY_DATA, "$SMS,000000;R005;R029;!");
+
+        assertEquals("$GPRS,123456789012345;R005;R029;!", encoder.encodeCommand(command));
+
+        command.set(Command.KEY_DATA, "$GPRS,123456789012345;R075,FOO;!");
+        assertEquals("$GPRS,123456789012345;R075,FOO;!", encoder.encodeCommand(command));
+
+        command.set(Command.KEY_DATA, "W005,1;R029;");
+        assertEquals("$GPRS,123456789012345;W005,1;R029;!", encoder.encodeCommand(command));
+
+    }
 }
