@@ -17,6 +17,7 @@ package org.traccar.protocol;
 
 import io.netty.channel.Channel;
 import org.traccar.BaseProtocolDecoder;
+import org.traccar.Context;
 import org.traccar.DeviceSession;
 import org.traccar.NetworkMessage;
 import org.traccar.Protocol;
@@ -116,44 +117,36 @@ public class MegastekProtocolDecoder extends BaseProtocolDecoder {
         String id;
         String location;
         String status;
-        if (simple) {
 
-            int beginIndex = sentence.indexOf(',') + 1;
-            int endIndex = sentence.indexOf(',', beginIndex);
+        int beginIndex;
+        int endIndex;
+        if (simple) {
+            beginIndex = sentence.indexOf(',') + 1;
+            endIndex = sentence.indexOf(',', beginIndex);
             id = sentence.substring(beginIndex, endIndex);
 
             beginIndex = endIndex + 1;
-            endIndex = sentence.indexOf('*', beginIndex);
-            if (endIndex != -1) {
-                endIndex += 3;
-            } else {
-                endIndex = sentence.length();
-            }
-            location = sentence.substring(beginIndex, endIndex);
-
-            beginIndex = endIndex + 1;
-            if (beginIndex > sentence.length()) {
-                beginIndex = endIndex;
-            }
-            status = sentence.substring(beginIndex);
-
         } else {
-
-            int beginIndex = 3;
-            int endIndex = beginIndex + 16;
+            beginIndex = 3;
+            endIndex = beginIndex + 16;
             id = sentence.substring(beginIndex, endIndex).trim();
 
             beginIndex = endIndex + 2;
-            endIndex = sentence.indexOf('*', beginIndex) + 3;
-            if (endIndex < 3) {
-                return null;
-            }
-            location = sentence.substring(beginIndex, endIndex);
-
-            beginIndex = endIndex + 1;
-            status = sentence.substring(beginIndex);
-
         }
+
+        endIndex = sentence.indexOf('*', beginIndex);
+        if (endIndex != -1) {
+            endIndex += 3;
+        } else {
+            endIndex = sentence.length();
+        }
+        location = sentence.substring(beginIndex, endIndex);
+
+        beginIndex = endIndex + 1;
+        if (beginIndex > sentence.length()) {
+            beginIndex = endIndex;
+        }
+        status = sentence.substring(beginIndex);
 
         Position position = new Position(getProtocolName());
         if (!parseLocation(location, position)) {
@@ -231,6 +224,8 @@ public class MegastekProtocolDecoder extends BaseProtocolDecoder {
 
             }
         }
+
+        Context.getIdentityManager().getById(position.getDeviceId()).set(getProtocolName() + ".alternative", false);
 
         return position;
     }
@@ -379,6 +374,8 @@ public class MegastekProtocolDecoder extends BaseProtocolDecoder {
 
         position.set(Position.KEY_ALARM, decodeAlarm(parser.next()));
 
+        Context.getIdentityManager().getById(position.getDeviceId()).set(getProtocolName() + ".alternative", true);
+
         return position;
     }
 
@@ -466,6 +463,9 @@ public class MegastekProtocolDecoder extends BaseProtocolDecoder {
         getLastLocation(position, null);
 
         String command = parser.next();
+        if (!command.toUpperCase().matches("^[WRCQ]\\d{3}.*")) {
+            return null;
+        }
         position.set(Position.KEY_RESULT, command);
 
         String response = "";

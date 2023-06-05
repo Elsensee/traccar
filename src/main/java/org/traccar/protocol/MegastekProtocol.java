@@ -15,11 +15,14 @@
  */
 package org.traccar.protocol;
 
+import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.string.StringDecoder;
 import io.netty.handler.codec.string.StringEncoder;
 import org.traccar.BaseProtocol;
+import org.traccar.NetworkMessage;
 import org.traccar.PipelineBuilder;
 import org.traccar.TrackerServer;
+import org.traccar.handler.OpenChannelHandler;
 import org.traccar.model.Command;
 
 public class MegastekProtocol extends BaseProtocol {
@@ -31,13 +34,15 @@ public class MegastekProtocol extends BaseProtocol {
             Command.TYPE_POSITION_PERIODIC,
             Command.TYPE_SOS_NUMBER,
             Command.TYPE_SET_TIMEZONE,
-            Command.TYPE_GET_VERSION,
             Command.TYPE_GET_DEVICE_STATUS,
             Command.TYPE_ALARM_VIBRATION,
             Command.TYPE_SILENCE_TIME,
             Command.TYPE_POSITION_SINGLE,
             Command.TYPE_FACTORY_RESET,
             Command.TYPE_REBOOT_DEVICE,
+            Command.TYPE_ALARM_SPEED,
+            Command.TYPE_MODE_POWER_SAVING,
+            Command.TYPE_OUTPUT_CONTROL,
             Command.TYPE_CUSTOM
         );
         addServer(new TrackerServer(false, getName()) {
@@ -48,6 +53,13 @@ public class MegastekProtocol extends BaseProtocol {
                 pipeline.addLast(new StringDecoder());
                 pipeline.addLast(new MegastekProtocolEncoder(MegastekProtocol.this));
                 pipeline.addLast(new MegastekProtocolDecoder(MegastekProtocol.this));
+                pipeline.addLast(new OpenChannelHandler(this) {
+                    @Override
+                    public void channelActive(ChannelHandlerContext ctx) throws Exception {
+                        super.channelActive(ctx);
+                        ctx.writeAndFlush(new NetworkMessage("$GPRS,;!", ctx.channel().remoteAddress()));
+                    }
+                });
             }
         });
     }
