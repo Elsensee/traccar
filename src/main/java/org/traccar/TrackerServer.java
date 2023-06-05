@@ -19,11 +19,14 @@ import io.netty.bootstrap.AbstractBootstrap;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelOption;
 import io.netty.channel.group.ChannelGroup;
 import io.netty.channel.group.DefaultChannelGroup;
 import io.netty.channel.socket.nio.NioDatagramChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.util.concurrent.GlobalEventExecutor;
+
+import org.traccar.config.Config;
 import org.traccar.config.Keys;
 
 import java.net.InetSocketAddress;
@@ -32,6 +35,8 @@ public abstract class TrackerServer {
 
     private final boolean datagram;
     private final AbstractBootstrap bootstrap;
+
+    private final Config config = Context.getConfig();
 
     public boolean isDatagram() {
         return datagram;
@@ -62,7 +67,9 @@ public abstract class TrackerServer {
             this.bootstrap = new ServerBootstrap()
                     .group(EventLoopGroupFactory.getBossGroup(), EventLoopGroupFactory.getWorkerGroup())
                     .channel(NioServerSocketChannel.class)
-                    .childHandler(pipelineFactory);
+                    .childHandler(pipelineFactory)
+                    .childOption(ChannelOption.SO_KEEPALIVE,
+                            config.getBoolean(Keys.PROTOCOL_KEEPALIVE.withPrefix(protocol)));
 
         }
     }

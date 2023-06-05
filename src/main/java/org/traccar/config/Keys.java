@@ -48,6 +48,15 @@ public final class Keys {
             Collections.singletonList(KeyType.GLOBAL));
 
     /**
+     * Enables the SO_KEEPALIVE socket option. Some protocols don't send a regular heartbeat message,
+     * so in those cases this option together with a reasonable keeplive interval can help keeping
+     * the connection alive. (This option will only be recognized if the connection works via TCP.)
+     */
+    public static final ConfigSuffix<Boolean> PROTOCOL_KEEPALIVE = new ConfigSuffix<>(
+            ".keepalive",
+            Collections.singletonList(KeyType.GLOBAL));
+
+    /**
      * Device password. Commonly used in some protocol for sending commands.
      */
     public static final ConfigSuffix<String> PROTOCOL_DEVICE_PASSWORD = new ConfigSuffix<>(
