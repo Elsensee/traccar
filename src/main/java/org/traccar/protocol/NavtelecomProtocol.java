@@ -15,19 +15,22 @@
  */
 package org.traccar.protocol;
 
-import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import org.traccar.BaseProtocol;
 import org.traccar.PipelineBuilder;
 import org.traccar.TrackerServer;
+import org.traccar.config.Config;
+
+import javax.inject.Inject;
 
 public class NavtelecomProtocol extends BaseProtocol {
 
-    public NavtelecomProtocol() {
-        addServer(new TrackerServer(false, getName()) {
+    @Inject
+    public NavtelecomProtocol(Config config) {
+        addServer(new TrackerServer(config, getName(), false) {
             @Override
-            protected void addProtocolHandlers(PipelineBuilder pipeline) {
-                pipeline.addLast(new LengthFieldBasedFrameDecoder(256, 2, 1, 2, 0));
-                pipeline.addLast(new Gt02ProtocolDecoder(NavtelecomProtocol.this));
+            protected void addProtocolHandlers(PipelineBuilder pipeline, Config config) {
+                pipeline.addLast(new NavtelecomFrameDecoder());
+                pipeline.addLast(new NavtelecomProtocolDecoder(NavtelecomProtocol.this));
             }
         });
     }

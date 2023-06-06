@@ -24,10 +24,14 @@ import org.traccar.PipelineBuilder;
 import org.traccar.TrackerServer;
 import org.traccar.handler.OpenChannelHandler;
 import org.traccar.model.Command;
+import org.traccar.config.Config;
+
+import javax.inject.Inject;
 
 public class MegastekProtocol extends BaseProtocol {
 
-    public MegastekProtocol() {
+    @Inject
+    public MegastekProtocol(Config config) {
         setSupportedDataCommands(
             Command.TYPE_SET_CONNECTION,
             Command.TYPE_POSITION_STOP,
@@ -45,9 +49,9 @@ public class MegastekProtocol extends BaseProtocol {
             Command.TYPE_OUTPUT_CONTROL,
             Command.TYPE_CUSTOM
         );
-        addServer(new TrackerServer(false, getName()) {
+        addServer(new TrackerServer(config, getName(), false) {
             @Override
-            protected void addProtocolHandlers(PipelineBuilder pipeline) {
+            protected void addProtocolHandlers(PipelineBuilder pipeline, Config config) {
                 pipeline.addLast(new MegastekFrameDecoder());
                 pipeline.addLast(new StringEncoder());
                 pipeline.addLast(new StringDecoder());

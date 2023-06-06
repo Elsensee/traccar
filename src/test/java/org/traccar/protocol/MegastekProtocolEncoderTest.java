@@ -1,17 +1,17 @@
 package org.traccar.protocol;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.traccar.ProtocolTest;
 import org.traccar.model.Command;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class MegastekProtocolEncoderTest extends ProtocolTest {
 
     @Test
     public void testEncodeSimple() throws Exception {
 
-        var encoder = new MegastekProtocolEncoder(null);
+        var encoder = inject(new MegastekProtocolEncoder(null));
 
         Command command = new Command();
         command.setDeviceId(1);
@@ -24,7 +24,7 @@ public class MegastekProtocolEncoderTest extends ProtocolTest {
     @Test
     public void testEncodeTimezone() throws Exception {
 
-        var encoder = new MegastekProtocolEncoder(null);
+        var encoder = inject(new MegastekProtocolEncoder(null));
 
         Command command = new Command();
         command.setDeviceId(1);
@@ -38,7 +38,7 @@ public class MegastekProtocolEncoderTest extends ProtocolTest {
     @Test
     public void testEncodeSilenceTime() throws Exception {
 
-        var encoder = new MegastekProtocolEncoder(null);
+        var encoder = inject(new MegastekProtocolEncoder(null));
 
         Command command = new Command();
         command.setDeviceId(1);
@@ -52,7 +52,7 @@ public class MegastekProtocolEncoderTest extends ProtocolTest {
     @Test
     public void testEncodeFrequency() throws Exception {
 
-        var encoder = new MegastekProtocolEncoder(null);
+        var encoder = inject(new MegastekProtocolEncoder(null));
 
         Command command = new Command();
         command.setDeviceId(1);
@@ -69,7 +69,7 @@ public class MegastekProtocolEncoderTest extends ProtocolTest {
     @Test
     public void testEncodeCustom() throws Exception {
 
-        var encoder = new MegastekProtocolEncoder(null);
+        var encoder = inject(new MegastekProtocolEncoder(null));
 
         Command command = new Command();
         command.setDeviceId(1);

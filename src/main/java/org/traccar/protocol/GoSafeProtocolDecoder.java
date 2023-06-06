@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 - 2019 Anton Tananaev (anton@traccar.org)
+ * Copyright 2015 - 2021 Anton Tananaev (anton@traccar.org)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ package org.traccar.protocol;
 
 import io.netty.channel.Channel;
 import org.traccar.BaseProtocolDecoder;
-import org.traccar.DeviceSession;
+import org.traccar.session.DeviceSession;
 import org.traccar.NetworkMessage;
 import org.traccar.Protocol;
 import org.traccar.helper.BitUtil;
@@ -93,14 +93,14 @@ public class GoSafeProtocolDecoder extends BaseProtocolDecoder {
                     position.setSpeed(UnitsConverter.knotsFromKph(Integer.parseInt(values[index - 1])));
                 }
                 position.setCourse(Integer.parseInt(values[index++]));
-                if (index < values.length) {
-                    position.setAltitude(Integer.parseInt(values[index++]));
+                if (index < values.length && !values[index++].isEmpty()) {
+                    position.setAltitude(Integer.parseInt(values[index - 1]));
                 }
-                if (index < values.length) {
-                    position.set(Position.KEY_HDOP, Double.parseDouble(values[index++]));
+                if (index < values.length && !values[index++].isEmpty()) {
+                    position.set(Position.KEY_HDOP, Double.parseDouble(values[index - 1]));
                 }
-                if (index < values.length) {
-                    position.set(Position.KEY_VDOP, Double.parseDouble(values[index++]));
+                if (index < values.length && !values[index++].isEmpty()) {
+                    position.set(Position.KEY_VDOP, Double.parseDouble(values[index - 1]));
                 }
                 break;
             case "GSM":
@@ -187,7 +187,12 @@ public class GoSafeProtocolDecoder extends BaseProtocolDecoder {
         int index = 0;
         String[] fragments = sentence.split(",");
 
-        position.setTime(new SimpleDateFormat("HHmmssddMMyy").parse(fragments[index++]));
+        if (fragments[index].matches("[0-9]{12}")) {
+            position.setTime(new SimpleDateFormat("HHmmssddMMyy").parse(fragments[index++]));
+        } else {
+            getLastLocation(position, null);
+            position.set(Position.KEY_RESULT, fragments[index++]);
+        }
 
         for (; index < fragments.length; index += 1) {
             if (!fragments[index].isEmpty()) {

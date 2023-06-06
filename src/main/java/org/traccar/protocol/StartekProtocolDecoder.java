@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Anton Tananaev (anton@traccar.org)
+ * Copyright 2021 - 2022 Anton Tananaev (anton@traccar.org)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ package org.traccar.protocol;
 
 import io.netty.channel.Channel;
 import org.traccar.BaseProtocolDecoder;
-import org.traccar.DeviceSession;
+import org.traccar.session.DeviceSession;
 import org.traccar.Protocol;
 import org.traccar.helper.BitUtil;
 import org.traccar.helper.Parser;
@@ -41,6 +41,11 @@ public class StartekProtocolDecoder extends BaseProtocolDecoder {
             .expression(".")                     // index
             .number("d+,")                       // length
             .number("(d+),")                     // imei
+            .expression("(.+)")                  // content
+            .number("xx")                        // checksum
+            .compile();
+
+    private static final Pattern PATTERN_POSITION = new PatternBuilder()
             .number("xxx,")                      // command
             .number("(d+),")                     // event
             .expression("([^,]+)?,")             // event data
@@ -64,16 +69,37 @@ public class StartekProtocolDecoder extends BaseProtocolDecoder {
             .number("(x+),")                     // inputs
             .number("(x+),")                     // outputs
             .number("(x+)|")                     // power
-            .number("(x+)|")                     // battery
-            .expression("([^,]+),")              // adc
+            .number("(x+)")                      // battery
+            .expression("([^,]+)?")              // adc
+            .groupBegin()
+            .text(",")
             .number("d,")                        // extended
-            .expression("([^,]+)?,")             // fuel
+            .expression("([^,]+)?")              // fuel
+            .groupBegin()
+            .text(",")
             .expression("([^,]+)?")              // temperature
-            .number("xx")                        // checksum
+            .groupBegin()
+            .text(",")
+            .groupBegin()
+            .number("(d+)?|")                    // rpm
+            .number("(d+)?|")                    // engine load
+            .number("(d+)?|")                    // maf flow
+            .number("(d+)?|")                    // intake pressure
+            .number("(d+)?|")                    // intake temperature
+            .number("(d+)?|")                    // throttle
+            .number("(d+)?|")                    // coolant temperature
+            .number("(d+)?|")                    // instant fuel
+            .number("(d+)[%L]").optional()       // fuel level
+            .groupEnd("?")
+            .groupEnd("?")
+            .groupEnd("?")
+            .groupEnd("?")
             .compile();
 
     private String decodeAlarm(int value) {
         switch (value) {
+            case 1:
+                return Position.ALARM_SOS;
             case 5:
             case 6:
                 return Position.ALARM_DOOR;
@@ -99,6 +125,32 @@ public class StartekProtocolDecoder extends BaseProtocolDecoder {
 
         DeviceSession deviceSession = getDeviceSession(channel, remoteAddress, parser.next());
         if (deviceSession == null) {
+            return null;
+        }
+
+        String content = parser.next();
+        if (content.length() < 100) {
+
+            Position position = new Position(getProtocolName());
+            position.setDeviceId(deviceSession.getDeviceId());
+
+            getLastLocation(position, null);
+
+            position.set(Position.KEY_RESULT, content);
+
+            return position;
+
+        } else {
+
+            return decodePosition(deviceSession, content);
+
+        }
+    }
+
+    protected Object decodePosition(DeviceSession deviceSession, String content) throws Exception {
+
+        Parser parser = new Parser(PATTERN_POSITION, content);
+        if (!parser.matches()) {
             return null;
         }
 
@@ -132,15 +184,22 @@ public class StartekProtocolDecoder extends BaseProtocolDecoder {
                 parser.nextInt(), parser.nextInt(), parser.nextHexInt(), parser.nextHexInt(), parser.nextInt())));
 
         position.set(Position.KEY_STATUS, parser.nextHexInt());
-        position.set(Position.KEY_INPUT, parser.nextHexInt());
-        position.set(Position.KEY_OUTPUT, parser.nextHexInt());
+
+        int input = parser.nextHexInt();
+        int output = parser.nextHexInt();
+        position.set(Position.KEY_IGNITION, BitUtil.check(input, 1));
+        position.set(Position.KEY_DOOR, BitUtil.check(input, 2));
+        position.set(Position.KEY_INPUT, input);
+        position.set(Position.KEY_OUTPUT, output);
 
         position.set(Position.KEY_POWER, parser.nextHexInt() * 0.01);
         position.set(Position.KEY_BATTERY, parser.nextHexInt() * 0.01);
 
-        String[] adc = parser.next().split("\\|");
-        for (int i = 0; i < adc.length; i++) {
-            position.set(Position.PREFIX_ADC + (i + 1), Integer.parseInt(adc[i], 16) * 0.01);
+        if (parser.hasNext()) {
+            String[] adc = parser.next().split("\\|");
+            for (int i = 1; i < adc.length; i++) {
+                position.set(Position.PREFIX_ADC + (i + 1), Integer.parseInt(adc[i], 16) * 0.01);
+            }
         }
 
         if (parser.hasNext()) {
@@ -163,6 +222,24 @@ public class StartekProtocolDecoder extends BaseProtocolDecoder {
                 }
                 position.set(Position.PREFIX_TEMP + index, convertedValue * 0.1);
             }
+        }
+
+        if (parser.hasNextAny(6)) {
+            position.set(Position.KEY_RPM, parser.nextInt());
+            position.set(Position.KEY_ENGINE_LOAD, parser.nextInt());
+            position.set("airFlow", parser.nextInt());
+            position.set("airPressure", parser.nextInt());
+            if (parser.hasNext()) {
+                position.set("airTemp", parser.nextInt() - 40);
+            }
+            position.set(Position.KEY_THROTTLE, parser.nextInt());
+            if (parser.hasNext()) {
+                position.set(Position.KEY_COOLANT_TEMP, parser.nextInt() - 40);
+            }
+            if (parser.hasNext()) {
+                position.set(Position.KEY_FUEL_CONSUMPTION, parser.nextInt() * 0.1);
+            }
+            position.set(Position.KEY_FUEL_LEVEL, parser.nextInt());
         }
 
         return position;

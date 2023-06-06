@@ -17,14 +17,14 @@ package org.traccar.protocol;
 
 import io.netty.channel.Channel;
 import org.traccar.BaseProtocolDecoder;
-import org.traccar.Context;
-import org.traccar.DeviceSession;
+import org.traccar.session.DeviceSession;
 import org.traccar.NetworkMessage;
 import org.traccar.Protocol;
 import org.traccar.helper.DateBuilder;
 import org.traccar.helper.Parser;
 import org.traccar.helper.PatternBuilder;
 import org.traccar.model.CellTower;
+import org.traccar.model.Device;
 import org.traccar.model.Network;
 import org.traccar.model.Position;
 
@@ -225,7 +225,7 @@ public class MegastekProtocolDecoder extends BaseProtocolDecoder {
             }
         }
 
-        Context.getIdentityManager().getById(position.getDeviceId()).set(getProtocolName() + ".alternative", false);
+        getCacheManager().getObject(Device.class, position.getDeviceId()).set(getProtocolName() + ".alternative", false);
 
         return position;
     }
@@ -374,7 +374,7 @@ public class MegastekProtocolDecoder extends BaseProtocolDecoder {
 
         position.set(Position.KEY_ALARM, decodeAlarm(parser.next()));
 
-        Context.getIdentityManager().getById(position.getDeviceId()).set(getProtocolName() + ".alternative", true);
+        getCacheManager().getObject(Device.class, position.getDeviceId()).set(getProtocolName() + ".alternative", true);
 
         return position;
     }
@@ -424,7 +424,7 @@ public class MegastekProtocolDecoder extends BaseProtocolDecoder {
             case "psr":
                 return Position.ALARM_POWER_RESTORED;
             case "hit":
-                return Position.ALARM_SHOCK;
+                return Position.ALARM_VIBRATION;
             case "belt on":
             case "belton":
                 return Position.ALARM_LOCK;

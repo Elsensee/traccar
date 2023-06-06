@@ -19,7 +19,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.channel.Channel;
 import org.traccar.BaseProtocolDecoder;
-import org.traccar.DeviceSession;
+import org.traccar.session.DeviceSession;
 import org.traccar.Protocol;
 import org.traccar.helper.BitUtil;
 import org.traccar.helper.DateBuilder;
@@ -137,6 +137,21 @@ public class PacificTrackProtocolDecoder extends BaseProtocolDecoder {
                                     break;
                                 case 0b01011:
                                     position.set("barometer", buf.readUnsignedByte() * 0.5);
+                                    break;
+                                case 0b01100:
+                                    position.set("intakeManifoldTemp", buf.readUnsignedByte() - 40);
+                                    break;
+                                case 0b01101:
+                                    position.set("fuelTankTemp", buf.readUnsignedByte() - 40);
+                                    break;
+                                case 0b01110:
+                                    position.set("intercoolerTemp", buf.readUnsignedByte() - 40);
+                                    break;
+                                case 0b01111:
+                                    position.set("turboOilTemp", buf.readUnsignedByte() - 40);
+                                    break;
+                                case 0b10000:
+                                    position.set("transOilTemp", buf.readUnsignedByte() - 40);
                                     break;
                                 default:
                                     buf.readUnsignedByte();

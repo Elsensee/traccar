@@ -19,8 +19,9 @@ import java.util.TimeZone;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.traccar.config.Keys;
+import org.traccar.helper.model.AttributeUtil;
 import org.traccar.model.Command;
-import org.traccar.Context;
 import org.traccar.Protocol;
 import org.traccar.StringProtocolEncoder;
 
@@ -59,8 +60,7 @@ public class MegastekProtocolEncoder extends StringProtocolEncoder {
     @Override
     protected Object encodeCommand(Command command) {
 
-        boolean alternative = Context.getIdentityManager().lookupAttributeBoolean(
-                command.getDeviceId(), getProtocolName() + ".alternative", false, false, true);
+        boolean alternative = AttributeUtil.lookup(getCacheManager(), Keys.PROTOCOL_ALTERNATIVE.withPrefix(getProtocolName()), command.getDeviceId());
 
         if (alternative) {
             switch (command.getType()) {

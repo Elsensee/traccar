@@ -1,6 +1,6 @@
 package org.traccar.protocol;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.traccar.ProtocolTest;
 import org.traccar.model.Position;
 
@@ -9,13 +9,22 @@ public class T800xProtocolDecoderTest extends ProtocolTest {
     @Test
     public void testDecode() throws Exception {
 
-        var decoder = new T800xProtocolDecoder(null);
+        var decoder = inject(new T800xProtocolDecoder(null));
+
+        verifyAttributes(decoder, binary(
+                "272704004901380864112055585747c612230321220006000036435fc8acc2ee600f420000000000000000909019003900001356a18000012c0000a8c00000001e20d4800000c00000"));
+
+        verifyAttributes(decoder, binary(
+                "2525110055000208677300508924902206262035310c540045004c00430045004c0004454447450847534d20313930300f323134303734323036373835323839143839333430373131373930303936383037363846"));
 
         verifyAttributes(decoder, binary(
                 "27271000247bd00860112047066487210407034238000005d7d17365e625ff640a730148"));
 
         verifyAttributes(decoder, binary(
                 "27271000277bb30860112047066487210407022840000004e6215130c50fff620a0c1518000156"));
+
+        verifyPosition(decoder, binary(
+                "252514005901c00867730050941347001e46501e03e80064f2c0001401000041000000000000000000ffffffff160000034ec40021100719073800000000c2fb90c21291fd400000000003961237ffff0000002effffffffff"));
 
         verifyPosition(decoder, binary(
                 "27270200497d880860112047066487470021040702270500006442d4e2e342f671b441000000008000008080881dff3900000384700640003c0000001e1e00641e30d2800000000000"));

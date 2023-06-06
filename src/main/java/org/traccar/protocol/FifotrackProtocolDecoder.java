@@ -19,8 +19,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import org.traccar.BaseProtocolDecoder;
-import org.traccar.Context;
-import org.traccar.DeviceSession;
+import org.traccar.session.DeviceSession;
 import org.traccar.NetworkMessage;
 import org.traccar.Protocol;
 import org.traccar.helper.BitUtil;
@@ -31,9 +30,14 @@ import org.traccar.helper.UnitsConverter;
 import org.traccar.model.CellTower;
 import org.traccar.model.Network;
 import org.traccar.model.Position;
+import org.traccar.model.WifiAccessPoint;
 
 import java.net.SocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.TimeZone;
 import java.util.regex.Pattern;
 
 public class FifotrackProtocolDecoder extends BaseProtocolDecoder {
@@ -74,6 +78,37 @@ public class FifotrackProtocolDecoder extends BaseProtocolDecoder {
             .any()
             .compile();
 
+    private static final Pattern PATTERN_NEW = new PatternBuilder()
+            .text("$$")
+            .number("d+,")                       // length
+            .number("(d+),")                     // imei
+            .number("(x+),")                     // index
+            .text("A03,")                        // type
+            .number("(d+)?,")                    // alarm
+            .number("(dd)(dd)(dd)")              // date (yymmdd)
+            .number("(dd)(dd)(dd),")             // time (hhmmss)
+            .number("(d+)|")                     // mcc
+            .number("(d+)|")                     // mnc
+            .number("(x+)|")                     // lac
+            .number("(x+),")                     // cid
+            .number("(d+.d+),")                  // battery
+            .number("(d+),")                     // battery level
+            .number("(x+),")                     // status
+            .groupBegin()
+            .text("0,")                          // gps location
+            .number("([AV]),")                   // validity
+            .number("(d+),")                     // speed
+            .number("(d+),")                     // satellites
+            .number("(-?d+.d+),")                // latitude
+            .number("(-?d+.d+)")                 // longitude
+            .or()
+            .text("1,")                          // wifi location
+            .expression("([^*]+)")               // wifi
+            .groupEnd()
+            .text("*")
+            .number("xx")                        // checksum
+            .compile();
+
     private static final Pattern PATTERN_PHOTO = new PatternBuilder()
             .text("$$")
             .number("d+,")                       // length
@@ -106,14 +141,18 @@ public class FifotrackProtocolDecoder extends BaseProtocolDecoder {
             .number("xx")
             .compile();
 
-    private void requestPhoto(Channel channel, SocketAddress socketAddress, String imei, String file) {
+    private void sendResponse(Channel channel, SocketAddress remoteAddress, String imei, String content) {
         if (channel != null) {
-            String content = "1,D06," + file + "," + photo.writerIndex() + "," + Math.min(1024, photo.writableBytes());
             int length = 1 + imei.length() + 1 + content.length();
             String response = String.format("##%02d,%s,%s*", length, imei, content);
             response += Checksum.sum(response) + "\r\n";
-            channel.writeAndFlush(new NetworkMessage(response, socketAddress));
+            channel.writeAndFlush(new NetworkMessage(response, remoteAddress));
         }
+    }
+
+    private void requestPhoto(Channel channel, SocketAddress remoteAddress, String imei, String file) {
+        String content = "1,D06," + file + "," + photo.writerIndex() + "," + Math.min(1024, photo.writableBytes());
+        sendResponse(channel, remoteAddress, imei, content);
     }
 
     private String decodeAlarm(Integer alarm) {
@@ -158,6 +197,69 @@ public class FifotrackProtocolDecoder extends BaseProtocolDecoder {
             }
         }
         return null;
+    }
+
+
+    private Object decodeLocationNew(
+            Channel channel, SocketAddress remoteAddress, String sentence) {
+
+        Parser parser = new Parser(PATTERN_NEW, sentence);
+        if (!parser.matches()) {
+            return null;
+        }
+
+        String imei = parser.next();
+        DeviceSession deviceSession = getDeviceSession(channel, remoteAddress, imei);
+        if (deviceSession == null) {
+            return null;
+        }
+
+        String index = parser.next();
+
+        Position position = new Position(getProtocolName());
+        position.setDeviceId(deviceSession.getDeviceId());
+
+        position.set(Position.KEY_ALARM, decodeAlarm(parser.nextInt()));
+
+        position.setDeviceTime(parser.nextDateTime());
+
+        Network network = new Network();
+        network.addCellTower(CellTower.from(
+                parser.nextInt(), parser.nextInt(), parser.nextHexInt(), parser.nextHexInt()));
+
+        position.set(Position.KEY_BATTERY, parser.nextDouble());
+        position.set(Position.KEY_BATTERY_LEVEL, parser.nextInt());
+        position.set(Position.KEY_STATUS, parser.nextHexInt());
+
+        if (parser.hasNext(5)) {
+
+            position.setValid(parser.next().equals("A"));
+            position.setFixTime(position.getDeviceTime());
+            position.set(Position.KEY_SATELLITES, parser.nextInt());
+            position.setSpeed(UnitsConverter.knotsFromKph(parser.nextInt()));
+            position.setLatitude(parser.nextDouble());
+            position.setLongitude(parser.nextDouble());
+
+        } else {
+
+            String[] points = parser.next().split("\\|");
+            for (String point : points) {
+                String[] wifi = point.split(":");
+                String mac = wifi[0].replaceAll("(..)", "$1:");
+                network.addWifiAccessPoint(WifiAccessPoint.from(
+                        mac.substring(0, mac.length() - 1), Integer.parseInt(wifi[1])));
+            }
+
+        }
+
+        position.setNetwork(network);
+
+        DateFormat dateFormat = new SimpleDateFormat("yyMMddHHmmss");
+        dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
+        String response = index + ",A03," + dateFormat.format(new Date());
+        sendResponse(channel, remoteAddress, imei, response);
+
+        return position;
     }
 
     private Object decodeLocation(
@@ -206,7 +308,12 @@ public class FifotrackProtocolDecoder extends BaseProtocolDecoder {
         }
 
         if (parser.hasNext()) {
-            position.set(Position.KEY_DRIVER_UNIQUE_ID, String.valueOf(parser.nextHexInt()));
+            String value = parser.next();
+            if (value.matches("\\p{XDigit}+")) {
+                position.set(Position.KEY_DRIVER_UNIQUE_ID, String.valueOf(Integer.parseInt(value, 16)));
+            } else {
+                position.set(Position.KEY_CARD, value);
+            }
         }
 
         if (parser.hasNext()) {
@@ -289,12 +396,16 @@ public class FifotrackProtocolDecoder extends BaseProtocolDecoder {
                     Position position = new Position(getProtocolName());
                     position.setDeviceId(getDeviceSession(channel, remoteAddress, imei).getDeviceId());
                     getLastLocation(position, null);
-                    position.set(Position.KEY_IMAGE, Context.getMediaManager().writeFile(imei, photo, "jpg"));
+                    position.set(Position.KEY_IMAGE, writeMediaFile(imei, photo, "jpg"));
                     photo.release();
                     photo = null;
                     return position;
                 }
             }
+
+        } else if (type.equals("A03")) {
+
+            return decodeLocationNew(channel, remoteAddress, buf.toString(StandardCharsets.US_ASCII));
 
         } else {
 
