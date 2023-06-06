@@ -62,7 +62,7 @@ public class MegastekProtocolEncoder extends StringProtocolEncoder {
 
         boolean alternative = AttributeUtil.lookup(getCacheManager(), Keys.PROTOCOL_ALTERNATIVE.withPrefix(getProtocolName()), command.getDeviceId());
 
-        if (alternative) {
+        if (!alternative) {
             switch (command.getType()) {
                 case Command.TYPE_SET_CONNECTION:
                     return formatCommand(command, "$GPRS,%s;W003,%s,%s;!",
